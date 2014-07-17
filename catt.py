@@ -32,9 +32,10 @@ class Test(object):
 class Tester(object):
     def __init__(self, openssl, host, production_library, test_library,
             production_key_cvp2, production_key_no_cvp2, test_key_cvp2,
-            test_key_no_cvp2, require_cvp2_bit=True):
+            test_key_no_cvp2, require_cvp2_bit=True, debug=False):
         self.openssl = openssl
         self.host = host
+        self.debug = debug
         self.tests = [
             # TODO: Should be production_key_cvp2
             Test("No Client Key", production_library, production_key_no_cvp2,
@@ -62,7 +63,8 @@ class Tester(object):
             "-port", "443", "-quiet", "-dtcp", "-dtcp_dll_path", test.library,
             "-dtcp_key_storage_dir", test.key]
         p = subprocess.Popen(args, stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+            stdout=None if self.debug else subprocess.DEVNULL,
+            stderr=subprocess.STDOUT)
         p.communicate(input=b"GET / HTTP/1.0\r\n\r\n")
         return_code = p.wait(WAIT_TIME)
         if return_code != 0 and test.should_succeed:
@@ -90,13 +92,15 @@ if __name__ == "__main__":
         help="path to directory with test key with CVP2 bit set")
     parser.add_argument("--test-key-no-cvp2", required=True,
         help="path to directory with test key without CVP2 bit set")
-    parser.add_argument("--no-require-cvp2-bit", default=False,
-        action="store_const", const=True,
+    parser.add_argument("--no-require-cvp2-bit", action="store_const",
+        default=False, const=True,
         help="don't require keys to have the CVP2 bit set")
+    parser.add_argument("--debug", "-d", action="store_const", default=False,
+        const=True, help="output command stdout and stderr")
     
     args = parser.parse_args()
     tester = Tester(args.openssl, args.host, args.production_library,
         args.test_library, args.production_key_cvp2,
         args.production_key_no_cvp2, args.test_key_cvp2, args.test_key_no_cvp2,
-        not args.no_require_cvp2_bit)
+        require_cvp2_bit=not args.no_require_cvp2_bit, debug=args.debug)
     tester.run_tests()
