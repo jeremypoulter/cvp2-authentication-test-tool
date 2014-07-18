@@ -67,17 +67,19 @@ class Tester(object):
             "-dtcp_key_storage_dir", test.key]
         if test.authenticate_client:
             args.append("-dtcp_send_x509")
-        p = subprocess.Popen(args, stdin=subprocess.PIPE,
-            stdout=None if self.debug else subprocess.DEVNULL,
-            stderr=subprocess.STDOUT)
-        p.communicate(input=b"GET / HTTP/1.0\r\n\r\n")
-        return_code = p.wait(WAIT_TIME)
+        filename = "{}.log".format(test.name)
+        with open(filename, "wb") as log:
+            p = subprocess.Popen(args, stdin=subprocess.PIPE,
+                stdout=log, stderr=subprocess.STDOUT)
+            p.communicate(input=b"GET / HTTP/1.0\r\n\r\n")
+            return_code = p.wait(WAIT_TIME)
         if return_code != 0 and test.should_succeed:
             print("FAIL: Connection failed when it should have succeeded")
         elif return_code == 0 and not test.should_succeed:
             print("FAIL: Connection succeeded when it should have failed")
         else:
             print("PASS")
+        print("See {} for output".format(filename))
         print()
 
 
