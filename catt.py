@@ -22,11 +22,12 @@ WAIT_TIME = 10
 
 
 class Test(object):
-    def __init__(self, name, library, key, should_succeed):
+    def __init__(self, name, library, key, should_succeed, authenticate_client):
         self.name = name
         self.library = library
         self.key = key
         self.should_succeed = should_succeed
+        self.authenticate_client = authenticate_client
 
 
 class Tester(object):
@@ -39,15 +40,17 @@ class Tester(object):
         self.tests = [
             # TODO: Should be production_key_cvp2
             Test("No Client Key", production_library, production_key_no_cvp2,
-                should_succeed=True),
+                should_succeed=True, authenticate_client=False),
             Test("Production Key With CVP2 Bit", production_library,
-                production_key_cvp2, should_succeed=True),
+                production_key_cvp2, should_succeed=True,
+                authenticate_client=True),
             Test("Production Key Without CVP2 Bit", production_library,
-                production_key_no_cvp2, should_succeed=not require_cvp2_bit),
+                production_key_no_cvp2, should_succeed=not require_cvp2_bit,
+                authenticate_client=True),
             Test("Test Key With CVP2 Bit", test_library, test_key_cvp2,
-                should_succeed=False),
+                should_succeed=False, authenticate_client=True),
             Test("Test Key Without CVP2 Bit", test_library, test_key_no_cvp2,
-                should_succeed=False)
+                should_succeed=False, authenticate_client=True)
         ]
 
     def run_tests(self):
@@ -62,6 +65,8 @@ class Tester(object):
         args = [self.openssl, "s_client", "-host", self.host,
             "-port", "443", "-quiet", "-dtcp", "-dtcp_dll_path", test.library,
             "-dtcp_key_storage_dir", test.key]
+        if test.authenticate_client:
+            args.append("-dtcp_send_x509")
         p = subprocess.Popen(args, stdin=subprocess.PIPE,
             stdout=None if self.debug else subprocess.DEVNULL,
             stderr=subprocess.STDOUT)
