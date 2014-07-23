@@ -42,7 +42,9 @@ class Test(object):
             return
 
         fail = False
-        args = [openssl, "s_client", "-host", host,
+        # -ign_eof tells s_client to wait for a server response instead of
+        # immediately stopping once it sees an EOF in stdin
+        args = [openssl, "s_client", "-host", host, "-ign_eof",
             "-port", "443", "-quiet", "-dtcp", "-dtcp_dll_path", self.library,
             "-dtcp_key_storage_dir", self.key]
         if debug:
