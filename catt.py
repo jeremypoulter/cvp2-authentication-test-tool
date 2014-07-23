@@ -49,11 +49,18 @@ class Test(object):
             p.communicate(input=b"GET / HTTP/1.0\r\n\r\n")
             return_code = p.wait(WAIT_TIME)
         with open(filename, "r") as log:
-            if not "CVP2_DTCIP_VerifyRemoteCert(): CVP2 bit set" in log.read():
+            output = log.read()
+            if not "CVP2_DTCIP_VerifyRemoteCert(): CVP2 bit set" in output:
                 fail = True
                 print("FAIL: CVP2 bit not set in remote cert")
             elif debug:
                 print("Debug: CVP2 bit is set")
+
+            # Make sure the client attempts to continue the connection, even
+            # if the server authentication failed
+            if not "Inside DTCPIPAuth_SignData" in output:
+                fail = True
+                print("ERROR: OpenSSL is setup incorrectly. Make sure validate_dtcp_suppdata() in s_client.c *always* returns 0, including in error conditions (note: this is insecure and should only be used for the test tool)")
         if return_code != 0 and self.should_succeed:
             print("FAIL: Connection failed when it should have succeeded")
         elif return_code == 0 and not self.should_succeed:
