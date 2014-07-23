@@ -11,8 +11,10 @@ This tool tests:
      - A CVP2 production key without the CVP2 bit set.
 """
 import argparse
+import configparser
 import enum
 import io
+import os
 import subprocess
 import sys
 
@@ -22,92 +24,100 @@ WAIT_TIME = 10
 
 
 class Test(object):
-    def __init__(self, name, library, key, should_succeed, authenticate_client):
+    def __init__(self, name, log_name, library, key, should_succeed):
         self.name = name
+        self.log_name = log_name
         self.library = library
         self.key = key
         self.should_succeed = should_succeed
-        self.authenticate_client = authenticate_client
 
-
-class Tester(object):
-    def __init__(self, openssl, host, production_library, test_library,
-            production_key_cvp2, production_key_no_cvp2, test_key_cvp2,
-            test_key_no_cvp2, require_cvp2_bit=True, debug=False):
-        self.openssl = openssl
-        self.host = host
-        self.debug = debug
-        self.tests = [
-            # TODO: Should be production_key_cvp2
-            Test("No Client Key", production_library, production_key_no_cvp2,
-                should_succeed=True, authenticate_client=False),
-            Test("Production Key With CVP2 Bit", production_library,
-                production_key_cvp2, should_succeed=True,
-                authenticate_client=True),
-            Test("Production Key Without CVP2 Bit", production_library,
-                production_key_no_cvp2, should_succeed=not require_cvp2_bit,
-                authenticate_client=True),
-            Test("Test Key With CVP2 Bit", test_library, test_key_cvp2,
-                should_succeed=False, authenticate_client=True),
-            Test("Test Key Without CVP2 Bit", test_library, test_key_no_cvp2,
-                should_succeed=False, authenticate_client=True)
-        ]
-
-    def run_tests(self):
-        for test in self.tests:
-            self.run_test(test)
-
-    def run_test(self, test):
-        print("Testing: {}".format(test.name))
-        if test.key is None:
+    def run(self, debug, host, openssl, log_path):
+        print("Testing: {}".format(self.name))
+        filename = os.path.join(log_path, "{}.log".format(self.log_name))
+        print("See {} for output".format(filename))
+        if self.key is None:
             print("SKIP: Required key not given as argument\n")
             return
-        args = [self.openssl, "s_client", "-host", self.host,
-            "-port", "443", "-quiet", "-dtcp", "-dtcp_dll_path", test.library,
-            "-dtcp_key_storage_dir", test.key]
-        if test.authenticate_client:
-            args.append("-dtcp_send_x509")
-        filename = "{}.log".format(test.name)
-        with open(filename, "wb") as log:
+        args = [openssl, "s_client", "-host", host,
+            "-port", "443", "-quiet", "-dtcp", "-dtcp_dll_path", self.library,
+            "-dtcp_key_storage_dir", self.key]
+        fail = False
+        if debug:
+            print("Running: {}".format(" ".join(args)))
+        with open(filename, "w") as log:
             p = subprocess.Popen(args, stdin=subprocess.PIPE,
                 stdout=log, stderr=subprocess.STDOUT)
             p.communicate(input=b"GET / HTTP/1.0\r\n\r\n")
             return_code = p.wait(WAIT_TIME)
-        if return_code != 0 and test.should_succeed:
+        with open(filename, "r") as log:
+            if not "CVP2 bit set" in log.read():
+                fail = True
+                print("FAIL: CVP2 bit not set in remote cert")
+            elif debug:
+                print("Debug: CVP2 bit is set")
+        if return_code != 0 and self.should_succeed:
             print("FAIL: Connection failed when it should have succeeded")
-        elif return_code == 0 and not test.should_succeed:
+        elif return_code == 0 and not self.should_succeed:
             print("FAIL: Connection succeeded when it should have failed")
-        else:
+        elif not fail:
             print("PASS")
-        print("See {} for output".format(filename))
         print()
+
+
+class Tester(object):
+    def __init__(self, debug, openssl, log_path, production_library_cvp2,
+            production_library_no_cvp2, test_library_cvp2,
+            test_library_no_cvp2, production_key_cvp2,
+            production_key_no_cvp2, test_key_cvp2, test_key_no_cvp2):
+        self.debug = debug
+        self.openssl = openssl
+        self.log_path = log_path
+        os.makedirs(log_path, exist_ok=True)
+        self.tests = [
+            Test("Production Key With CVP2 Bit", "production-cvp2",
+                production_library_cvp2, production_key_cvp2,
+                should_succeed=True),
+            Test("Production Key Without CVP2 Bit", "production-no-cvp2",
+                production_library_no_cvp2, production_key_no_cvp2,
+                should_succeed=False),
+            Test("Test Key With CVP2 Bit", "test-cvp2",
+                test_library_cvp2, test_key_cvp2,
+                should_succeed=False),
+            Test("Test Key Without CVP2 Bit", "test-no-cvp2",
+                test_library_no_cvp2, test_key_no_cvp2,
+                should_succeed=False)
+        ]
+
+    def run_tests(self, host):
+        for test in self.tests:
+            test.run(self.debug, host, self.openssl, self.log_path)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CVP2 Authentication Test Tool")
-    parser.add_argument("--openssl", required=True, help="OpenSSL binary")
     parser.add_argument("--host", required=True, help="host to test")
-    parser.add_argument("--production-library", required=True,
-        help="path to production DTCP library")
-    parser.add_argument("--test-library", required=True,
-        help="path to test DTCP library")
-    parser.add_argument("--production-key-cvp2",
-        help="path to directory with production key with CVP2 bit set")
-    parser.add_argument("--production-key-no-cvp2", required=True,
-        help="path to directory with production key without CVP2 bit set")
-    parser.add_argument("--test-key-cvp2",
-        help="path to directory with test key with CVP2 bit set")
-    parser.add_argument("--test-key-no-cvp2", required=True,
-        help="path to directory with test key without CVP2 bit set")
-    parser.add_argument("--no-require-cvp2-bit", action="store_const",
-        default=False, const=True,
-        help="don't require keys to have the CVP2 bit set")
-    parser.add_argument("--debug", "-d", action="store_const", default=False,
-        const=True, help="output command stdout and stderr")
-    
+    parser.add_argument("--debug", "-d", help="extra debug output",
+        action="store_const", const=True, default=False)
+    parser.add_argument("--config", "-c", help="path to config file")
+
     args = parser.parse_args()
-    tester = Tester(args.openssl, args.host, args.production_library,
-        args.test_library, args.production_key_cvp2,
-        args.production_key_no_cvp2, args.test_key_cvp2, args.test_key_no_cvp2,
-        require_cvp2_bit=not args.no_require_cvp2_bit, debug=args.debug)
-    tester.run_tests()
+
+    config = configparser.ConfigParser()
+    config.read(args.config)
+    programs = config["Programs"]
+    logs = config["Logs"]
+    libraries = config["Libraries"]
+    keys = config["Keys"]
+
+    tester = Tester(debug=args.debug,
+        openssl = programs["OpenSSL"],
+        log_path = logs.get("LogPath", "."),
+        production_library_cvp2 = libraries["ProductionLibCvp2"],
+        production_library_no_cvp2 = libraries["ProductionLibNoCvp2"],
+        test_library_cvp2 = libraries["TestLibCvp2"],
+        test_library_no_cvp2 = libraries["TestLibNoCvp2"],
+        production_key_cvp2 = keys["ProductionKeyCvp2"],
+        production_key_no_cvp2 = keys["ProductionKeyNoCvp2"],
+        test_key_cvp2 = keys.get("TestKeyCvp2", None),
+        test_key_no_cvp2 = keys["TestKeyNoCvp2"])
+    tester.run_tests(args.host)
