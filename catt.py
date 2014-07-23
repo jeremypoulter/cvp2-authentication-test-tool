@@ -32,9 +32,8 @@ class Test(object):
         self.should_succeed = should_succeed
 
     def run(self, debug, host, openssl, log_path):
-        print("Testing: {}".format(self.name))
         filename = os.path.join(log_path, "{}.log".format(self.log_name))
-        print("See {} for output".format(filename))
+        print("Testing: {} (log: {})".format(self.name, filename))
         if self.key is None:
             print("SKIP: Required key not given as argument\n")
             return
@@ -50,7 +49,7 @@ class Test(object):
             p.communicate(input=b"GET / HTTP/1.0\r\n\r\n")
             return_code = p.wait(WAIT_TIME)
         with open(filename, "r") as log:
-            if not "CVP2 bit set" in log.read():
+            if not "CVP2_DTCIP_VerifyRemoteCert(): CVP2 bit set" in log.read():
                 fail = True
                 print("FAIL: CVP2 bit not set in remote cert")
             elif debug:
