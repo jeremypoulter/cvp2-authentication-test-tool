@@ -55,6 +55,11 @@ class Test(object):
         with open(filename, "r") as log:
             output = log.read()
 
+            # Make sure the openssl program supports -dtcp
+            if "unknown option -dtcp" in output:
+                print("ERROR: OpenSSL does not support -dtcp argument in s_client. Make sure you're using the CVP2 OpenSSL (https://community.cablelabs.com/wiki/display/CBLCVP2/Openssl+Implementation)\n")
+                return
+
             # Check output to make sure the CVP2 bit was set on the server side
             if not "CVP2_DTCIP_VerifyRemoteCert(): CVP2 bit set" in output:
                 fail = True
@@ -67,8 +72,8 @@ class Test(object):
             # Make sure the client attempts to continue the connection, even
             # if the server authentication failed
             if not "Inside DTCPIPAuth_SignData" in output:
-                fail = True
-                print("ERROR: OpenSSL is setup incorrectly. Make sure validate_dtcp_suppdata() in s_client.c *always* returns 0, including in error conditions (note: this is insecure and should only be used for the test tool)")
+                print("ERROR: OpenSSL is setup incorrectly. Make sure validate_dtcp_suppdata() in s_client.c *always* returns 0, including in error conditions (note: this is insecure and should only be used for the test tool)\n")
+                return
 
         if return_code != 0 and self.should_succeed:
             print("FAIL: Connection failed when it should have succeeded")
