@@ -34,25 +34,33 @@ class Test(object):
     def run(self, debug, host, openssl, log_path):
         filename = os.path.join(log_path, "{}.log".format(self.log_name))
         print("Testing: {} (log: {})".format(self.name, filename))
+
         if self.key is None:
             print("SKIP: Required key not given as argument\n")
             return
+
+        fail = False
         args = [openssl, "s_client", "-host", host,
             "-port", "443", "-quiet", "-dtcp", "-dtcp_dll_path", self.library,
             "-dtcp_key_storage_dir", self.key]
-        fail = False
         if debug:
             print("Running: {}".format(" ".join(args)))
+
         with open(filename, "w") as log:
             p = subprocess.Popen(args, stdin=subprocess.PIPE,
                 stdout=log, stderr=subprocess.STDOUT)
             p.communicate(input=b"GET / HTTP/1.0\r\n\r\n")
             return_code = p.wait(WAIT_TIME)
+
         with open(filename, "r") as log:
             output = log.read()
+
+            # Check output to make sure the CVP2 bit was set on the server side
             if not "CVP2_DTCIP_VerifyRemoteCert(): CVP2 bit set" in output:
                 fail = True
                 print("FAIL: CVP2 bit not set in remote cert")
+            # TODO: Check for "CVP2 bit not set" or whatever the message is
+            # once we have a failure case
             elif debug:
                 print("Debug: CVP2 bit is set")
 
@@ -61,6 +69,7 @@ class Test(object):
             if not "Inside DTCPIPAuth_SignData" in output:
                 fail = True
                 print("ERROR: OpenSSL is setup incorrectly. Make sure validate_dtcp_suppdata() in s_client.c *always* returns 0, including in error conditions (note: this is insecure and should only be used for the test tool)")
+
         if return_code != 0 and self.should_succeed:
             print("FAIL: Connection failed when it should have succeeded")
         elif return_code == 0 and not self.should_succeed:
@@ -104,7 +113,7 @@ if __name__ == "__main__":
     parser.add_argument("--host", required=True, help="host to test")
     parser.add_argument("--debug", "-d", help="extra debug output",
         action="store_const", const=True, default=False)
-    parser.add_argument("--config", "-c", help="path to config file")
+    parser.add_argument("--config", "-c", help="path to config file (see included catt.conf)")
 
     args = parser.parse_args()
 
