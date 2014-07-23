@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
 CVP2 Authentication Test Tool
+Brendan Long <b.long@cablelabs.com>
+
 This tool tests:
   * That a server's DTCPIP key is a valid production key, with the CVP2 bit set.
   * That the server accepts connections from clients with a valid production
