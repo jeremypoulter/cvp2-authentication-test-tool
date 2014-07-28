@@ -127,6 +127,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config = configparser.ConfigParser()
+    config["DEFAULT"] = {
+        "CATT_DIR": os.path.dirname(os.path.realpath(__file__))
+    }
     config.read(args.config)
     programs = config["Programs"]
     logs = config["Logs"]
