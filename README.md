@@ -4,23 +4,14 @@ Brendan Long <b.long@cablelabs.com>
 
 ## Setup
 
+If you work at CableLabs, email Brendan Long and request the complete tar file with keys and libraries.
+
 ### OpenSSL
 
-First, get a checkout of the CVP2 team's OpenSSL build:
+First, get a checkout of the CVP2 team's OpenSSL with the cvp2-authentication-test-tool branch:
 
-    git clone https://github.com/cablelabs/openssl.git
+    git clone https://github.com/cablelabs/openssl.git -b cvp2-authentication-test-tool
     cd openssl
-
-Then open s_client.c:
-
-    gedit apps/s_client.c &
-
-Change line 2826 at the end of `validate_dtcp_suppdata()` from `return -1;` to `return 0;`. This will cause OpenSSL to ignore server DTCP validation errors.
-
-**Note: This is extremely insecure.** We need to do this for our test program because we want the test that the server rejects our connection, and normally the client wouldn't even try once it knows that the server certificate is invalid. Needless to say, don't use this checkout for anything that needs to be actually secure.
-
-Now build OpenSSL:
-
     ./config
     make
 
@@ -28,9 +19,11 @@ Now build OpenSSL:
 
 Edit catt.conf's `OpenSSL` line to be the full path to apps/openssl (`echo $PWD/apps/openssl` might help).
 
+Note: Don't use this branch for anything besides this tool. We've made a change so that s_client ignores remote certificate failures, and that's usually not what you want.
+
 ## Get Keys
 
-To run the tool, you will need:
+To run the tool, you will need to get the following from [DTLA](http://www.dtcp.com/):
 
   * A production DTCP library.
   * A test DTCP library.
