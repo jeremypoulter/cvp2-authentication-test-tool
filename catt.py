@@ -25,6 +25,16 @@ import sys
 WAIT_TIME = 10
 
 
+class Port(object):
+    def __init__(self, value):
+        self.value = int(value)
+        if self.value < 1 or self.value > 65535:
+            raise TypeError("port numbers must be between 1 and 65535")
+
+    def __str__(self):
+        return str(self.value)
+
+
 class Test(object):
     def __init__(self, name, log_name, library, key, should_succeed):
         self.name = name
@@ -33,7 +43,7 @@ class Test(object):
         self.key = key
         self.should_succeed = should_succeed
 
-    def run(self, debug, host, openssl, log_path):
+    def run(self, debug, host, port, openssl, log_path):
         filename = os.path.join(log_path, "{}.log".format(self.log_name))
         print("Testing: {} (log: {})".format(self.name, filename))
 
@@ -45,8 +55,8 @@ class Test(object):
         # -ign_eof tells s_client to wait for a server response instead of
         # immediately stopping once it sees an EOF in stdin
         args = [openssl, "s_client", "-host", host, "-ign_eof",
-            "-port", "443", "-quiet", "-dtcp", "-dtcp_dll_path", self.library,
-            "-dtcp_key_storage_dir", self.key]
+            "-port", str(port), "-quiet", "-dtcp", "-dtcp_dll_path",
+            self.library, "-dtcp_key_storage_dir", self.key]
         if debug:
             print("Running: {}".format(" ".join(args)))
 
@@ -112,14 +122,16 @@ class Tester(object):
                 should_succeed=False)
         ]
 
-    def run_tests(self, host):
+    def run_tests(self, host, port):
         for test in self.tests:
-            test.run(self.debug, host, self.openssl, self.log_path)
+            test.run(self.debug, host, port, self.openssl, self.log_path)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CVP2 Authentication Test Tool")
     parser.add_argument("--host", required=True, help="host to test")
+    parser.add_argument("--port", "-p", default=443, type=Port,
+        help="port to connect to (default: 443)")
     parser.add_argument("--debug", "-d", help="extra debug output",
         action="store_const", const=True, default=False)
     parser.add_argument("--config", "-c", help="path to config file (see included catt.conf)")
@@ -147,4 +159,4 @@ if __name__ == "__main__":
         production_key_no_cvp2 = keys["ProductionKeyNoCvp2"],
         test_key_cvp2 = keys.get("TestKeyCvp2", None),
         test_key_no_cvp2 = keys["TestKeyNoCvp2"])
-    tester.run_tests(args.host)
+    tester.run_tests(args.host, args.port)
