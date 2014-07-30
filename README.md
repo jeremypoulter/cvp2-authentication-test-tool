@@ -13,6 +13,7 @@ First, get a checkout of the CVP2 team's OpenSSL with the cvp2-authentication-te
     git clone https://github.com/cablelabs/openssl.git -b cvp2-authentication-test-tool
     cd openssl
     ./config
+    make depend
     make
 
 [Email me](mailto:b.long@cablelabs.com) if that's not enough to build OpenSSL.
