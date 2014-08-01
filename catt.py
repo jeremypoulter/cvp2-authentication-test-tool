@@ -25,6 +25,16 @@ import sys
 WAIT_TIME = 10
 
 
+class Path(object):
+    def __init__(self, value):
+        self.value = str(value)
+        if not self.value.startswith("/"):
+            self.value = "/" + self.value
+
+    def __str__(self):
+        return self.value
+
+
 class Port(object):
     def __init__(self, value):
         self.value = int(value)
@@ -43,7 +53,7 @@ class Test(object):
         self.key = key
         self.should_succeed = should_succeed
 
-    def run(self, debug, host, port, openssl, log_path):
+    def run(self, debug, host, port, path, openssl, log_path):
         filename = os.path.join(log_path, "{}.log".format(self.log_name))
         print("Testing: {} (log: {})".format(self.name, filename))
 
@@ -63,7 +73,7 @@ class Test(object):
         with open(filename, "w") as log:
             p = subprocess.Popen(args, stdin=subprocess.PIPE,
                 stdout=log, stderr=subprocess.STDOUT)
-            p.communicate(input=b"GET / HTTP/1.0\r\n\r\n")
+            p.communicate(input="GET {} HTTP/1.0\r\n\r\n".format(path).encode("UTF-8"))
             return_code = p.wait(WAIT_TIME)
 
         with open(filename, "r") as log:
@@ -122,9 +132,9 @@ class Tester(object):
                 should_succeed=False)
         ]
 
-    def run_tests(self, host, port):
+    def run_tests(self, host, port, path):
         for test in self.tests:
-            test.run(self.debug, host, port, self.openssl, self.log_path)
+            test.run(self.debug, host, port, path, self.openssl, self.log_path)
 
 
 if __name__ == "__main__":
@@ -135,6 +145,8 @@ if __name__ == "__main__":
     parser.add_argument("--debug", "-d", help="extra debug output",
         action="store_const", const=True, default=False)
     parser.add_argument("--config", "-c", help="path to config file (see included catt.conf)")
+    parser.add_argument("--path", default="/", type=Path,
+        help="the absolute path to request on the server (defaults is \"/\")")
 
     args = parser.parse_args()
 
@@ -159,4 +171,4 @@ if __name__ == "__main__":
         production_key_no_cvp2 = keys["ProductionKeyNoCvp2"],
         test_key_cvp2 = keys.get("TestKeyCvp2", None),
         test_key_no_cvp2 = keys["TestKeyNoCvp2"])
-    tester.run_tests(args.host, args.port)
+    tester.run_tests(args.host, args.port, args.path)
