@@ -151,6 +151,12 @@ class VerifyServerTest(Test):
             with open(filename, "r") as log:
                 output = log.read()
 
+            if not "DTCPIPAuth_VerifyRemoteCert returning 0" in output:
+                fail = True
+                print("Server's DTCP certificate is invalid")
+            else:
+                print("Server's DTCP certificate is valid")
+
             # Check output to make sure the CVP2 bit was set on the server side
             if not "CVP2_DTCIP_VerifyRemoteCert(): CVP2 bit set" in output:
                 fail = True
