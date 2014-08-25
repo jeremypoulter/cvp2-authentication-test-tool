@@ -152,6 +152,7 @@ class VerifyServerTest(Test):
         if x509_pass:
             print("Server X.509 certificate verification succeeded")
         else:
+            print("Server's X.509 certificate did not verify, checking DTCP certificate")
             args += ["-dtcp", "-dtcp_dll_path", self.library,
                 "-dtcp_key_storage_dir", self.key]
 
