@@ -47,7 +47,7 @@ class Port(object):
 
 
 class Test(object):
-    HTTP_LINE_REGEX = re.compile("^HTTP/[1-9]\.[0-9]+ ([0-9]+ .*)$",
+    HTTP_LINE_REGEX = re.compile(b"^HTTP/[1-9]\.[0-9]+ ([0-9]+ .*)$",
         flags=re.MULTILINE)
 
     def __init__(self, name, log_name, library, key, should_succeed):
@@ -65,7 +65,24 @@ class Test(object):
         return_code = p.wait(WAIT_TIME)
 
         log.write(output)
-        return output.decode("UTF-8"), return_code
+
+        fail = False
+        if return_code != 0:
+            print("Connection failed")
+            if self.should_succeed:
+                fail = True
+        else:
+            print("Connection succeeded")
+            if not self.should_succeed:
+                fail = True
+
+        http_line = self.HTTP_LINE_REGEX.search(output)
+        http_status = http_line.group(1) if http_line is not None else None
+
+        if http_status is not None:
+            print("HTTP Status: ", http_status.decode("UTF-8"))
+
+        return output.decode("UTF-8"), fail
 
     def run(self, debug, ca_file, host, port, path, openssl, log_path):
         filename = os.path.join(log_path, "{}.log".format(self.log_name))
@@ -77,7 +94,6 @@ class Test(object):
             print("TEST SKIPPED\n")
             return
 
-        fail = False
         # -ign_eof tells s_client to wait for a server response instead of
         # immediately stopping once it sees an EOF in stdin
         args = [openssl, "s_client", "-host", host, "-ign_eof",
@@ -87,13 +103,7 @@ class Test(object):
             print("Running: {}".format(" ".join(args)))
 
         with open(filename, "wb") as log:
-            output, return_code = self._run_program(args, path, log)
-
-        http_line = self.HTTP_LINE_REGEX.search(output)
-        http_status = http_line.group(1) if http_line is not None else None
-
-        if http_status is not None:
-            print("HTTP Status: ", http_status)
+            output, fail = self._run_program(args, path, log)
 
         # Make sure the openssl program supports -dtcp
         if "unknown option -dtcp" in output:
@@ -106,14 +116,6 @@ class Test(object):
             print("ERROR: OpenSSL is setup incorrectly. Make sure validate_dtcp_suppdata() in s_client.c ALWAYS returns 0, including in error conditions (note: this is insecure and should only be used for the test tool)\n")
             return
 
-        if return_code != 0:
-            print("Connection failed")
-            if self.should_succeed:
-                fail = True
-        else:
-            print("Connection succeeded")
-            if not self.should_succeed:
-                fail = True
         if fail:
             print("TEST FAILED")
         else:
@@ -132,7 +134,6 @@ class VerifyServerTest(Test):
             print("TEST SKIPPED\n")
             return
 
-        fail = False
         # -ign_eof tells s_client to wait for a server response instead of
         # immediately stopping once it sees an EOF in stdin
         args = [openssl, "s_client", "-host", host, "-ign_eof",
@@ -141,13 +142,7 @@ class VerifyServerTest(Test):
             print("Running: {}".format(" ".join(args)))
 
         with open(filename, "wb") as log:
-            output, return_code = self._run_program(args, path, log)
-
-        http_line = self.HTTP_LINE_REGEX.search(output)
-        http_status = http_line.group(1) if http_line is not None else None
-
-        if http_status is not None:
-            print("HTTP Status: ", http_status)
+            output, fail = self._run_program(args, path, log)
 
         x509_pass = "Verify return code: 0 (ok)" in output
         if x509_pass:
@@ -158,12 +153,6 @@ class VerifyServerTest(Test):
 
             with open(filename, "ab") as log:
                 output, return_code = self._run_program(args, path, log)
-
-            http_line = self.HTTP_LINE_REGEX.search(output)
-            http_status = http_line.group(1) if http_line is not None else None
-
-            if http_status is not None:
-                print("HTTP Status: ", http_status)
 
             if not "DTCPIPAuth_VerifyRemoteCert returning 0" in output:
                 fail = True
@@ -180,14 +169,6 @@ class VerifyServerTest(Test):
             else:
                 print("CVP2 bit is set in remote certificate")
 
-        if return_code != 0:
-            print("Connection failed")
-            if self.should_succeed:
-                fail = True
-        else:
-            print("Connection succeeded")
-            if not self.should_succeed:
-                fail = True
         if fail:
             print("TEST FAILED")
         else:
