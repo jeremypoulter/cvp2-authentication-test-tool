@@ -17,6 +17,7 @@ import configparser
 import enum
 import io
 import os
+import re
 import subprocess
 import sys
 
@@ -46,6 +47,9 @@ class Port(object):
 
 
 class Test(object):
+    HTTP_LINE_REGEX = re.compile("^HTTP/[1-9]\.[0-9]+ ([0-9]+ .*)$",
+        flags=re.MULTILINE)
+
     def __init__(self, name, log_name, library, key, should_succeed):
         self.name = name
         self.log_name = log_name
@@ -84,6 +88,12 @@ class Test(object):
 
         with open(filename, "wb") as log:
             output, return_code = self._run_program(args, path, log)
+
+        http_line = self.HTTP_LINE_REGEX.search(output)
+        http_status = http_line.group(1) if http_line is not None else None
+
+        if http_status is not None:
+            print("HTTP Status: ", http_status)
 
         # Make sure the openssl program supports -dtcp
         if "unknown option -dtcp" in output:
@@ -133,6 +143,12 @@ class VerifyServerTest(Test):
         with open(filename, "wb") as log:
             output, return_code = self._run_program(args, path, log)
 
+        http_line = self.HTTP_LINE_REGEX.search(output)
+        http_status = http_line.group(1) if http_line is not None else None
+
+        if http_status is not None:
+            print("HTTP Status: ", http_status)
+
         x509_pass = "Verify return code: 0 (ok)" in output
         if x509_pass:
             print("Server X.509 certificate verification succeeded")
@@ -142,6 +158,12 @@ class VerifyServerTest(Test):
 
             with open(filename, "ab") as log:
                 output, return_code = self._run_program(args, path, log)
+
+            http_line = self.HTTP_LINE_REGEX.search(output)
+            http_status = http_line.group(1) if http_line is not None else None
+
+            if http_status is not None:
+                print("HTTP Status: ", http_status)
 
             if not "DTCPIPAuth_VerifyRemoteCert returning 0" in output:
                 fail = True
