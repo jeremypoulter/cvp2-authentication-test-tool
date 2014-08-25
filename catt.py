@@ -81,6 +81,10 @@ class Test(object):
 
         if http_status is not None:
             print("HTTP Status: ", http_status.decode("UTF-8"))
+            # Ignore HTTP response when looking at OpenSSL's output.
+            # This is to prevent the server from sending us messages like,
+            # "Verify return code: 0 (ok)"
+            output, _ = output.split(http_line.group(0), 1)
 
         return output.decode("UTF-8"), fail
 
