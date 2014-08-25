@@ -53,6 +53,16 @@ class Test(object):
         self.key = key
         self.should_succeed = should_succeed
 
+    def _run_program(self, args, path, log):
+        p = subprocess.Popen(args, stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        output, _ = p.communicate(
+            input="GET {} HTTP/1.0\r\n\r\n".format(path).encode("UTF-8"))
+        return_code = p.wait(WAIT_TIME)
+
+        log.write(output)
+        return output.decode("UTF-8"), return_code
+
     def run(self, debug, ca_file, host, port, path, openssl, log_path):
         filename = os.path.join(log_path, "{}.log".format(self.log_name))
         print("Testing: {} (log: {})".format(self.name,
@@ -72,14 +82,8 @@ class Test(object):
         if debug:
             print("Running: {}".format(" ".join(args)))
 
-        with open(filename, "w") as log:
-            p = subprocess.Popen(args, stdin=subprocess.PIPE,
-                stdout=log, stderr=subprocess.STDOUT)
-            p.communicate(input="GET {} HTTP/1.0\r\n\r\n".format(path).encode("UTF-8"))
-            return_code = p.wait(WAIT_TIME)
-
-        with open(filename, "r") as log:
-            output = log.read()
+        with open(filename, "wb") as log:
+            output, return_code = self._run_program(args, path, log)
 
         # Make sure the openssl program supports -dtcp
         if "unknown option -dtcp" in output:
@@ -126,14 +130,8 @@ class VerifyServerTest(Test):
         if debug:
             print("Running: {}".format(" ".join(args)))
 
-        with open(filename, "w") as log:
-            p = subprocess.Popen(args, stdin=subprocess.PIPE,
-                stdout=log, stderr=subprocess.STDOUT)
-            p.communicate(input="GET {} HTTP/1.0\r\n\r\n".format(path).encode("UTF-8"))
-            return_code = p.wait(WAIT_TIME)
-
-        with open(filename, "r") as log:
-            output = log.read()
+        with open(filename, "wb") as log:
+            output, return_code = self._run_program(args, path, log)
 
         x509_pass = "Verify return code: 0 (ok)" in output
         if x509_pass:
@@ -142,14 +140,8 @@ class VerifyServerTest(Test):
             args += ["-dtcp", "-dtcp_dll_path", self.library,
                 "-dtcp_key_storage_dir", self.key]
 
-            with open(filename, "a") as log:
-                p = subprocess.Popen(args, stdin=subprocess.PIPE,
-                    stdout=log, stderr=subprocess.STDOUT)
-                p.communicate(input="GET {} HTTP/1.0\r\n\r\n".format(path).encode("UTF-8"))
-                return_code = p.wait(WAIT_TIME)
-
-            with open(filename, "r") as log:
-                output = log.read()
+            with open(filename, "ab") as log:
+                output, return_code = self._run_program(args, path, log)
 
             if not "DTCPIPAuth_VerifyRemoteCert returning 0" in output:
                 fail = True
