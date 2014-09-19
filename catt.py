@@ -104,8 +104,12 @@ class Test(object):
         # -ign_eof tells s_client to wait for a server response instead of
         # immediately stopping once it sees an EOF in stdin
         args = [openssl, "s_client", "-host", host, "-ign_eof",
+            "-CAfile", ca_file,
             "-port", str(port), "-dtcp", "-dtcp_dll_path",
-            self.library, "-dtcp_key_storage_dir", self.key]
+            self.library, "-dtcp_key_storage_dir", self.key,
+            # FIXME: The DTLA certificates need to be fixed to include the
+            # sslserver purpose.
+            "-purpose", "any"]
         if debug:
             print("Running: {}".format(" ".join(args)))
 
@@ -144,7 +148,10 @@ class VerifyServerTest(Test):
         # -ign_eof tells s_client to wait for a server response instead of
         # immediately stopping once it sees an EOF in stdin
         args = [openssl, "s_client", "-host", host, "-ign_eof",
-            "-port", str(port), "-CAfile", ca_file, "-verify", "10"]
+            "-port", str(port), "-CAfile", ca_file,
+            # FIXME: The DTLA certificates need to be fixed to include the
+            # sslserver purpose.
+            "-purpose", "any"]
         if debug:
             print("Running: {}".format(" ".join(args)))
 
