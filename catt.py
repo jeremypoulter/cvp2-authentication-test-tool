@@ -85,6 +85,9 @@ class Test(object):
             # This is to prevent the server from sending us messages like,
             # "Verify return code: 0 (ok)"
             output, _ = output.split(http_line.group(0), 1)
+        elif return_code == 0:
+            print("ERROR: Connection succeeded, but there is no HTTP/1.x response header")
+            fail = True
 
         return output.decode("UTF-8"), fail
 
