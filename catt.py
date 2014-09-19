@@ -89,7 +89,7 @@ class Test(object):
             print("ERROR: Connection succeeded, but there is no HTTP/1.x response header")
             fail = True
 
-        return output.decode("UTF-8"), fail
+        return output, fail
 
     def run(self, debug, ca_file, host, port, path, openssl, log_path):
         filename = os.path.join(log_path, "{}.log".format(self.log_name))
@@ -117,13 +117,13 @@ class Test(object):
             output, fail = self._run_program(args, path, log)
 
         # Make sure the openssl program supports -dtcp
-        if "unknown option -dtcp" in output:
+        if b"unknown option -dtcp" in output:
             print("ERROR: OpenSSL does not support -dtcp argument in s_client. Make sure you're using the CVP2 OpenSSL (https://community.cablelabs.com/wiki/display/CBLCVP2/Openssl+Implementation)\n")
             return
 
         # Make sure the client attempts to continue the connection, even
         # if the server authentication failed
-        if not "Inside DTCPIPAuth_SignData" in output:
+        if not b"Inside DTCPIPAuth_SignData" in output:
             print("ERROR: OpenSSL is setup incorrectly. Make sure validate_dtcp_suppdata() in s_client.c ALWAYS returns 0, including in error conditions (note: this is insecure and should only be used for the test tool)\n")
             return
 
@@ -158,7 +158,7 @@ class VerifyServerTest(Test):
         with open(filename, "wb") as log:
             output, fail = self._run_program(args, path, log)
 
-        x509_pass = "Verify return code: 0 (ok)" in output
+        x509_pass = b"Verify return code: 0 (ok)" in output
         if x509_pass:
             print("Server X.509 certificate verification succeeded")
         else:
@@ -169,14 +169,14 @@ class VerifyServerTest(Test):
             with open(filename, "ab") as log:
                 output, return_code = self._run_program(args, path, log)
 
-            if not "DTCPIPAuth_VerifyRemoteCert returning 0" in output:
+            if not b"DTCPIPAuth_VerifyRemoteCert returning 0" in output:
                 fail = True
                 print("Server's DTCP certificate is invalid")
             else:
                 print("Server's DTCP certificate is valid")
 
             # Check output to make sure the CVP2 bit was set on the server side
-            if not "CVP2_DTCIP_VerifyRemoteCert(): CVP2 bit set" in output:
+            if not b"CVP2_DTCIP_VerifyRemoteCert(): CVP2 bit set" in output:
                 fail = True
                 print("CVP2 bit is NOT set in remote certificate")
             # TODO: Check for "CVP2 bit not set" or whatever the message is
